@@ -16,9 +16,31 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r paquetes, include=FALSE}
-setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1-master")
+setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1")
+library(affy)
 ```
 ***
+
+##1. Identificar que grupos hay y a qué grupo pertenece cada muestra.
+
+Tras haber descargado los archivos **.CEL** correspondientes al estudio elegido en la página GEO, será necesario hacerles un primer reconocimiento. Este primer paso es esencial para, a través de gráficos o resúmenes numéricos, a primera vista determinar si es preciso llevar a cabo correcciones de grandes anomalías.
+
+Leemos los ficheros .CEL presentes en el directorio de trabajo con la función *ReadAffy*.
+```{r}
+archivos <- ReadAffy()
+```
+
+Nos interesa por tanto poder estudiar los datos fenotípicos que se encuentran indicando además el grupo al que va a pertener cada una. 
+
+En este trabajo en cuestión, vamos a encontrarnos con 40 muestras diferentes, correspondientes a muestras realizadas en ratones de tres áreas cerebrales diferentes (CA3, CA1, DG), la mitad siendo entrenadas previamente, y la mitad no. Renonmbraremos por tanto los datos fenotipicos con el nombre adecuado según la muestra se trate de una parte u otra, y hubiera sido entrenado el ratón o no.
+
+```{r}
+feno <- archivos@phenoData
+feno@data[,1]=c(rep("Control CA3",7),rep("Learning Activated CA3",7),rep("Control CA1",6),rep("Learning Activated CA1",6),rep("Control DG",7),rep("Learning Activated DG",7))
+feno@data
+```
+
+De esta forma forma obtendremos tantos los datos de expresiön como los fenotípicos de la muestra. 
 
 
 
