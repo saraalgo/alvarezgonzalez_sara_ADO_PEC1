@@ -1,0 +1,27 @@
+---
+title: "PEC1 ADO"
+author: "Sara Álvarez González"
+date: "21 de abril de 2020"
+output: 
+    html_document:
+      toc: true
+      toc_float: true
+    pdf_document:
+
+lang: es-ES
+---
+<div class=text-justify>
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r paquetes, include=FALSE}
+setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1-master")
+```
+***
+
+
+
+
+
+</div>
