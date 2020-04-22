@@ -382,6 +382,108 @@ plclust(clust.euclid.average, main=&quot;Hierarchical clustering of samples&quot
 <p>A simple vista, el boxplot nos muestra cierta variabilidad entre los datos, aunque vemos que los que son de la misma región van a moverse por una zona similar, aunque no es posible decir si esta relación es significativa a simple vista. En cuanto al histograma, podemos observar que de nuevo, aparentemente, se mueven por las mismas zonas aquellas observaciones realizadas a las zonas homónimas.</p>
 <p>El tercer gráfico elegido para realizar una pequeña visula, será el de la jerarquización de las muestras a través de clústers. De manera aparente, da la sensación de que sí que existe cierta distinción entre las tres zonas analizadas, aunque tal y como son los datos resulta difícil sacar una conclusión.</p>
 <p>Será por tanto necesario, previo a sacar ninguna conclusión o analizarlos, llevar a cabo una normalización de los mismos.</p>
+<h2 id="normalización">3. Normalización</h2>
+<p>Para llevar a cabo esta tarea, se ha elegido el método de <strong>RMA</strong>, debido que se trata de una muestra de microarray de un color, concretamente Affymetrix. Este método de resumen y normalización va a aportar mejores antes las deficiencia de los anteriores métodos (MAS4 y MAS5). Los pasos que va a llevar a cabo este <strong>Robust multi-array average</strong> serán: un ajuste del ruido de fondo, la toma de logaritmos de base 2 ajustados por el anterior, la normalización por cuantiles de los valores anteriores y estimación de las intensidades para, en este caso, cada gen para cada conjunto de ARN tumoral que lo componen.</p>
+<pre class="r"><code>normalizacion &lt;- rma(archivos)</code></pre>
+<pre><code>## Background correcting
+## Normalizing
+## Calculating Expression</code></pre>
+<pre class="r"><code>normalizacion</code></pre>
+<pre><code>## ExpressionSet (storageMode: lockedEnvironment)
+## assayData: 15923 features, 40 samples 
+##   element names: exprs 
+## protocolData
+##   sampleNames: GSM289058.CEL GSM289059.CEL ... GSM289097.CEL (40 total)
+##   varLabels: ScanDate
+##   varMetadata: labelDescription
+## phenoData
+##   sampleNames: GSM289058.CEL GSM289059.CEL ... GSM289097.CEL (40 total)
+##   varLabels: sample
+##   varMetadata: labelDescription
+## featureData: none
+## experimentData: use 'experimentData(object)'
+## Annotation: rae230a</code></pre>
+<pre class="r"><code>class(normalizacion)</code></pre>
+<pre><code>## [1] &quot;ExpressionSet&quot;
+## attr(,&quot;package&quot;)
+## [1] &quot;Biobase&quot;</code></pre>
+<pre class="r"><code>matriz &lt;- exprs(normalizacion)
+head(matriz)</code></pre>
+<pre><code>##            GSM289058.CEL GSM289059.CEL GSM289060.CEL GSM289061.CEL
+## 1367452_at     10.338470     10.265202     10.362926     10.433609
+## 1367453_at     10.252969     10.126555     10.107608     10.257204
+## 1367454_at      9.253004      9.079169      9.064656      9.346968
+## 1367455_at     10.362878     10.281711     10.208252     10.369907
+## 1367456_at      9.548963      9.558008      9.562787      9.691528
+## 1367457_at     10.098260      9.964133     10.063967     10.172533
+##            GSM289062.CEL GSM289063.CEL GSM289064.CEL GSM289065.CEL
+## 1367452_at     10.313532     10.420543     10.446876     10.383524
+## 1367453_at     10.106206     10.122384     10.124152     10.060198
+## 1367454_at      9.167711      9.073583      9.071128      9.101628
+## 1367455_at     10.178241     10.250984     10.168967     10.306108
+## 1367456_at      9.542003      9.629320      9.630504      9.702038
+## 1367457_at     10.192796     10.091091     10.089327     10.128928
+##            GSM289066.CEL GSM289067.CEL GSM289068.CEL GSM289069.CEL
+## 1367452_at     10.367017     10.384174     10.464060     10.365792
+## 1367453_at     10.011246     10.084623     10.025984     10.116284
+## 1367454_at      9.133296      9.131897      9.231897      9.181514
+## 1367455_at     10.224715     10.185968     10.226664     10.258402
+## 1367456_at      9.661052      9.802402      9.819752      9.832927
+## 1367457_at     10.085786     10.104186     10.065311     10.054928
+##            GSM289070.CEL GSM289071.CEL GSM289072.CEL GSM289073.CEL
+## 1367452_at     10.245255     10.327610     10.078227     10.055450
+## 1367453_at     10.076750     10.139450      9.794166      9.769356
+## 1367454_at      9.109056      9.145949      8.942211      8.916574
+## 1367455_at     10.156539     10.289023      9.891999      9.912533
+## 1367456_at      9.758295      9.797009      9.909297      9.763754
+## 1367457_at     10.028090     10.037904      9.860103      9.813707
+##            GSM289074.CEL GSM289075.CEL GSM289076.CEL GSM289077.CEL
+## 1367452_at     10.114843      9.983295     10.112662     10.154834
+## 1367453_at      9.860003      9.653173      9.684552      9.722631
+## 1367454_at      8.979307      9.103808      8.938945      9.032526
+## 1367455_at      9.794476      9.722094      9.703419      9.787051
+## 1367456_at      9.836134      9.717974      9.759025      9.720446
+## 1367457_at      9.906229      9.868927      9.909179      9.945809
+##            GSM289078.CEL GSM289079.CEL GSM289080.CEL GSM289081.CEL
+## 1367452_at     10.063552     10.148889     10.061830     10.350769
+## 1367453_at      9.803730      9.787290      9.694397      9.921090
+## 1367454_at      8.991583      9.009405      9.021194      8.995238
+## 1367455_at      9.894210      9.822099      9.856875      9.938166
+## 1367456_at      9.886330      9.827740      9.740800     10.002737
+## 1367457_at      9.894228      9.970505      9.823056      9.998576
+##            GSM289082.CEL GSM289083.CEL GSM289084.CEL GSM289085.CEL
+## 1367452_at     10.063185     10.239902     10.359753     10.412361
+## 1367453_at      9.800906      9.768639      9.948877      9.967769
+## 1367454_at      8.957435      9.055176      9.146985      9.124993
+## 1367455_at      9.897180      9.858916     10.014051      9.901411
+## 1367456_at      9.795381      9.982059      9.615405      9.608686
+## 1367457_at      9.709545      9.864975      9.799609      9.758959
+##            GSM289086.CEL GSM289087.CEL GSM289088.CEL GSM289089.CEL
+## 1367452_at     10.387006     10.413347     10.168820     10.479748
+## 1367453_at      9.885121     10.006058      9.928455      9.877195
+## 1367454_at      9.135001      9.047485      8.943702      9.290440
+## 1367455_at      9.964864     10.025388      9.764596      9.954048
+## 1367456_at      9.594206      9.616415      9.552856      9.830470
+## 1367457_at      9.925512      9.901600      9.794342      9.943515
+##            GSM289090.CEL GSM289091.CEL GSM289092.CEL GSM289093.CEL
+## 1367452_at     10.294888     10.235090     10.459529     10.096285
+## 1367453_at      9.800809      9.774588      9.831591      9.751671
+## 1367454_at      9.022394      9.172201      9.150645      8.918047
+## 1367455_at      9.788701      9.825674      9.826790      9.426882
+## 1367456_at      9.582604      9.832005      9.832085      9.287659
+## 1367457_at      9.851334      9.693692      9.621780      9.519204
+##            GSM289094.CEL GSM289095.CEL GSM289096.CEL GSM289097.CEL
+## 1367452_at     10.254227     10.222825     10.370578     10.496946
+## 1367453_at      9.931648      9.987385      9.917921      9.879505
+## 1367454_at      9.076715      9.154736      9.224486      9.204130
+## 1367455_at     10.018463      9.860867      9.925271      9.947052
+## 1367456_at      9.565259      9.609627      9.810511      9.582054
+## 1367457_at      9.803366      9.417025      9.719623      9.743565</code></pre>
+<p>Es de destacar que para llevar a cabo esta normalización, antes de convertirla en una matriz facilmente manipulable para posteriores funciones, el objeto que nos devuelve será uno del tipo <em>ExpressionSet</em>, como el trabajado en los foros. Como su propia clase lo define, es como un paso intermedio entre los datos tal y como nos los dan, a manipularlos de manera sencilla (subconjuntos de datos, copia, cambio de formato…). Obtendremos así, con una simple transformación con la función <em>exprs</em>, una matriz con los datos sumarizados y normalizados.</p>
+<pre class="r"><code>dim(matriz)</code></pre>
+<pre><code>## [1] 15923    40</code></pre>
+<p>Es decir, obtenemos una matriz con la expresión del ARN como filas, mientras que como columnas estarán los 40 experimentos con las distintas condiciones comentadas previamente. De hecho, por comodidad podemos cambiárselo para que sea más sencillo, como anteriormente.</p>
+<pre class="r"><code>colnames(matriz) = nombres</code></pre>
 </div>
 
 
