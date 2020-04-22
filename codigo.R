@@ -25,3 +25,13 @@ colnames(fenotipo)=nombres
 colnames(fenotipo)
 
 
+#2.
+#boxplot
+colores = c(rep("red",14),rep("blue",12),rep("yellow",14))
+boxplot(archivos,las=2, cex.axis=0.7, names=nombres, col=colores)
+#histograma
+hist(archivos,col=colores)
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+#clúster jerárquico
+clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
+plclust(clust.euclid.average, main="Hierarchical clustering of samples",  hang=-1)
