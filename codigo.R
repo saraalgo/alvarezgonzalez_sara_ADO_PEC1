@@ -7,7 +7,17 @@ archivos <- ReadAffy(compress = TRUE)
 
 #1.
 feno <- archivos@phenoData
-nombres=c(rep("Control CA3",7),rep("Learning Activated CA3",7),rep("Control CA1",6),rep("Learning Activated CA1",6),rep("Control DG",7),rep("Learning Activated DG",7))
+
+nombres=c(rep("CA3_cont",7),rep("CA3_act",7),rep("CA1_cont",6),rep("CA1_act",6),rep("DG_cont",7),rep("DG_act",7))
+nombres<-paste0(nombres,"_")
+CA3_control<-paste0(nombres[1:7],1:7)
+CA3_exp<-paste0(nombres[8:14],1:7)
+CA1_control<-paste0(nombres[15:20],1:6)
+CA1_exp<-paste0(nombres[21:26],1:6)
+DG_control<-paste0(nombres[27:33],1:7)
+DG_exp<-paste0(nombres[34:40],1:7)
+nombres <- c(CA3_control,CA3_exp,CA1_control,CA1_exp,DG_control,DG_exp)
+
 feno@data[,1]=nombres
 feno@data
 feno$sample
@@ -36,6 +46,9 @@ legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
 clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
 plclust(clust.euclid.average, main="Hierarchical clustering of samples",  hang=-1)
 
+calidad <- qc(archivos)
+plot(calidad)
+
 
 #3.
 normalizacion <- rma(archivos)
@@ -46,4 +59,18 @@ head(matriz)
 
 dim(matriz)
 
-colnames(matriz) = nombres
+colnames(matriz) <- nombres
+head(matriz)
+
+
+#4.
+#boxplot
+par(mfrow=c(1,2))
+boxplot(normalizacion,las=2, cex.axis=0.7,names=nombres, col=colores,ylab="Luminiscencia",main="Datos normalizados")
+boxplot(archivos,las=2, cex.axis=0.7, names=nombres, col=colores,ylab="Luminiscencia",main="Datos crudos")
+#histograma
+par(mfrow=c(1,2))
+hist(normalizacion,col=colores,main="Datos normalizados")
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+hist(archivos,col=colores,main="Datos crudos")
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
