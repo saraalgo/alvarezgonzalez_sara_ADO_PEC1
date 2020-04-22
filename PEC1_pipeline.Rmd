@@ -80,7 +80,28 @@ El tercer gráfico elegido para realizar una pequeña visula, será el de la jer
 
 Será por tanto necesario, previo a sacar ninguna conclusión o analizarlos, llevar a cabo una normalización de los mismos.
 
+##3. Normalización
 
+Para llevar a cabo esta tarea, se ha elegido el método de **RMA**, debido que se trata de una muestra de microarray de un color, concretamente Affymetrix. Este método de resumen y normalización va a aportar mejores antes las deficiencia de los anteriores métodos (MAS4 y MAS5). Los pasos que va a llevar a cabo este **Robust multi-array average** serán: un ajuste del ruido de fondo, la toma de logaritmos de base 2 ajustados por el anterior, la normalización por cuantiles de los valores anteriores y estimación de las intensidades para, en este caso, cada gen para cada conjunto de ARN tumoral que lo componen.
 
+```{r}
+normalizacion <- rma(archivos)
+normalizacion
+class(normalizacion)
+matriz <- exprs(normalizacion)
+head(matriz)
+```
+
+Es de destacar que para llevar a cabo esta normalización, antes de convertirla en una matriz facilmente manipulable para posteriores funciones, el objeto que nos devuelve será uno del tipo *ExpressionSet*, como el trabajado en los foros. Como su propia clase lo define, es como un paso intermedio entre los datos tal y como nos los dan, a manipularlos de manera sencilla (subconjuntos de datos, copia, cambio de formato...). Obtendremos así, con una simple transformación con la función *exprs*, una matriz con los datos sumarizados y normalizados. 
+
+```{r}
+dim(matriz)
+```
+
+Es decir, obtenemos una matriz con la expresión del ARN como filas, mientras que como columnas estarán los 40 experimentos con las distintas condiciones comentadas previamente. De hecho, por comodidad podemos cambiárselo para que sea más sencillo, como anteriormente.
+
+```{r}
+colnames(matriz) = nombres
+```
 
 </div>

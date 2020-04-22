@@ -35,3 +35,15 @@ legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
 #clúster jerárquico
 clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
 plclust(clust.euclid.average, main="Hierarchical clustering of samples",  hang=-1)
+
+
+#3.
+normalizacion <- rma(archivos)
+normalizacion
+class(normalizacion)
+matriz <- exprs(normalizacion)
+head(matriz)
+
+dim(matriz)
+
+colnames(matriz) = nombres
