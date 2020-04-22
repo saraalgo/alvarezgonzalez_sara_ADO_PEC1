@@ -36,12 +36,49 @@ En este trabajo en cuestión, vamos a encontrarnos con 40 muestras diferentes, c
 
 ```{r}
 feno <- archivos@phenoData
-feno@data[,1]=c(rep("Control CA3",7),rep("Learning Activated CA3",7),rep("Control CA1",6),rep("Learning Activated CA1",6),rep("Control DG",7),rep("Learning Activated DG",7))
+nombres=c(rep("Control CA3",7),rep("Learning Activated CA3",7),rep("Control CA1",6),rep("Learning Activated CA1",6),rep("Control DG",7),rep("Learning Activated DG",7))
+feno@data[,1]=nombres
 feno@data
+feno$sample
 ```
 
-De esta forma forma obtendremos tantos los datos de expresiön como los fenotípicos de la muestra. 
+De esta forma forma obtendremos tantos los datos de expresión como los fenotípicos de la muestra. También podemos hacer este mismo procedimiento, pero gracias a la importación de los datos a través del archivo .txt (y no del .CEL) que nos aporta el problema.
 
+```{r}
+fenotipo<-file.path("matrix.txt")
+fenotipo <- as.matrix(read.table(file = fenotipo, header = T, sep = "\t", row.names = 1, as.is = T))
+dim(fenotipo)
+#las filas serán los genes y sus expresiones
+print(rownames(fenotipo), max = 10)
+#las columnas serán los anteriores nombres de los archivos, que de hecho podemos cambiar como hicimos en la otra manera de hacerlo anterior
+colnames(fenotipo)
+colnames(fenotipo)=nombres
+colnames(fenotipo)
+```
+
+##2. Control de calidad de los datos crudos.
+
+Una manera muy intuitiva de comprobar la calidad de los datos crudos, como se ha dicho en el apartado anterior, es mediante la observación de su comportamiento a través de gráficas. En este caso no se consideró el hacer un reconocimiento descriptivo, debido al tipo de datos con los que tratamos, ya que en la manera en la que están cargados, el hecho de que sean varias muestras diferentes dificultaría tal objetivo, haciendo esta primera observación menos intuitiva:
+  
+```{r,warning=FALSE}
+#boxplot
+colores = c(rep("red",14),rep("blue",12),rep("yellow",14))
+boxplot(archivos,las=2, cex.axis=0.7, names=nombres, col=colores)
+#histograma
+hist(archivos,col=colores)
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+#clúster jerárquico
+clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
+plclust(clust.euclid.average, main="Hierarchical clustering of samples",  hang=-1)
+```
+
+Los dos primeros (boxplot e histograma) son los dos gráficos que mejor nos permiten obsevar las disparidades de estos datos en crudo (*raw data*). Esto es así debido a que el primero de ellos nos permite ver la distribución de las intensidades, mientras que el segundo ver la similitud en forma y posición de las diferentes muestras.Se ha facilitado la interpretación de estas dos primeros gráficos a través de colores, pintando los de cada región de un color, incluyendo a los de control o experimentales.
+
+A simple vista, el boxplot nos muestra cierta variabilidad entre los datos, aunque vemos que los que son de la misma región van a moverse por una zona similar, aunque no es posible decir si esta relación es significativa a simple vista. En cuanto al histograma, podemos observar que de nuevo, aparentemente, se mueven por las mismas zonas aquellas observaciones realizadas a las zonas homónimas.
+
+El tercer gráfico elegido para realizar una pequeña visula, será el de la jerarquización de las muestras a través de clústers. De manera aparente, da la sensación de que sí que existe cierta distinción entre las tres zonas analizadas, aunque tal y como son los datos resulta difícil sacar una conclusión.
+
+Será por tanto necesario, previo a sacar ninguna conclusión o analizarlos, llevar a cabo una normalización de los mismos.
 
 
 
