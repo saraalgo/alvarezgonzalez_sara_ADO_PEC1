@@ -246,7 +246,25 @@ write.table(table_DG,file="DG_Control_vs_Activado.txt",row.names = F,sep = "\t",
 En esta comparación encontraremos **1052** genes DE con una significación de **umbral 0.05**. Además, los resultados de estos genes se guardarán en un *.txt*.
 
 
+##8. Comparación entre distintas comparaciones (si hay más de una comparación, ver que genes han sido seleccionados en más de una comparación)
 
+En este apartado, seleccionaremos aquellos genes DE que han destacado como tal en las tres áreas cerebrales que aquí estamos analizados, además de hacer también las comparaciones de CA3-CA1, CA1-DG y CA3-DG.
+
+Lo primero que hay que tener en cuenta, es que si queremos buscar genes coincidentes, solo podremos utilizar el **umbral 0.05** de significación en el CA3-DG, debido a que como vimos, en el caso de CA1 hemos tenido que aumentarlo a **umbral 0.5** debido a que sino no obteníamos ninguno. Con lo cual, en el resto será empleado el **umbral 0.5**, pudiendo salir genes en CA3 y DG que antes no consideramos para sus correspondientes tablas.
+
+```{r}
+length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5))
+length(which(table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
+length(which(table_CA3$adj.P.Val < 0.05 & table_DG$adj.P.Val < 0.05))
+length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
+```
+
+Las comparaciones muestran por tanto:
+
+1. Genes DE en CA3 vs CA1: **93**, implicando que todos los genes DE en CA1 también lo eran en CA3.
+2. Genes DE en CA1 vs DG: **93**, implicando que todos los genes DE en CA1 también lo eran en DG.
+3. Genes DE en CA3 vs DG: **317**, existiendo por tanto cierta cantidad de genes DE no coincidentes.
+4. Genes DE en CA3 vs CA1 vs DG: **93**, implicando que todos los genes DE en CA1, como se vio en los casos 1 y 2, también lo fueron en las otras dos áreas.
 
 
 </div>

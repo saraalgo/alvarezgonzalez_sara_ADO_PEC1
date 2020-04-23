@@ -76,7 +76,7 @@ hist(archivos,col=colores,main="Datos crudos")
 legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
 
 
-#5 y 6.
+#6 y 7.
 feno@data[,2] <- c(rep("CA3",14),rep("CA1",12),rep("DG",14))
 feno@data[,3] <- c(rep("Control",7),rep("Activado",7),rep("Control",6),rep("Activado",6),rep("Control",7),rep("Activado",7))
 colnames(feno@data)[2] <- "area"
@@ -104,3 +104,31 @@ table_CA3$Genes <- rownames(table_CA3)
 table_CA3 <- table_CA3[,c("Genes",names(table_CA3)[1:6])]
 write.table(table_CA3,file="CA3_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
 
+contraste_CA1 <- makeContrasts(grupoCA1.Control - grupoCA1.Activado, levels = colnames(coef(ajuste2)))
+contraste_CA1
+gen_CA1 <- contrasts.fit(ajuste2,contraste_CA1)
+gen_CA1 <- eBayes(gen_CA1)
+table_CA1 <- topTable(gen_CA1,sort.by = "P",n=Inf)
+head(table_CA1,5)
+length(which(table_CA1$adj.P.Val < 0.5))
+table_CA1$Genes <- rownames(table_CA1)
+table_CA1 <- table_CA1[,c("Genes",names(table_CA1)[1:6])]
+write.table(table_CA1,file="CA1_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+
+contraste_DG <- makeContrasts(grupoDG.Control - grupoDG.Activado, levels = colnames(coef(ajuste2)))
+contraste_DG
+gen_DG <- contrasts.fit(ajuste2,contraste_DG)
+gen_DG <- eBayes(gen_DG)
+table_DG <- topTable(gen_DG,sort.by = "P",n=Inf)
+head(table_DG,5)
+length(which(table_DG$adj.P.Val < 0.05))
+table_DG$Genes <- rownames(table_DG)
+table_DG <- table_DG[,c("Genes",names(table_DG)[1:6])]
+write.table(table_DG,file="DG_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+
+#8.
+
+length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5))
+length(which(table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
+length(which(table_CA3$adj.P.Val < 0.05 & table_DG$adj.P.Val < 0.05))
+length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
