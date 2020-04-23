@@ -74,3 +74,33 @@ hist(normalizacion,col=colores,main="Datos normalizados")
 legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
 hist(archivos,col=colores,main="Datos crudos")
 legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+
+
+#5 y 6.
+feno@data[,2] <- c(rep("CA3",14),rep("CA1",12),rep("DG",14))
+feno@data[,3] <- c(rep("Control",7),rep("Activado",7),rep("Control",6),rep("Activado",6),rep("Control",7),rep("Activado",7))
+colnames(feno@data)[2] <- "area"
+colnames(feno@data)[3] <- "estado"
+head(feno@data,2)
+area <- factor(feno$area)
+estado <- factor(feno$estado)
+
+grupo <- interaction(area,estado)
+plotMDS(matriz,col=as.numeric(grupo))
+modelo <- model.matrix(~0+grupo)
+ajuste <- voom(matriz,modelo,plot=T)
+
+ajuste2 <- lmFit(ajuste,modelo)
+head(coef(ajuste2))
+
+contraste_CA3 <- makeContrasts(grupoCA3.Control - grupoCA3.Activado, levels = colnames(coef(ajuste2)))
+contraste_CA3
+gen_CA3 <- contrasts.fit(ajuste2,contraste_CA3)
+gen_CA3 <- eBayes(gen_CA3)
+table_CA3 <- topTable(gen_CA3,sort.by = "P",n=Inf)
+head(table_CA3,5)
+length(which(table_CA3$adj.P.Val < 0.05))
+table_CA3$Genes <- rownames(table_CA3)
+table_CA3 <- table_CA3[,c("Genes",names(table_CA3)[1:6])]
+write.table(table_CA3,file="CA3_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+
