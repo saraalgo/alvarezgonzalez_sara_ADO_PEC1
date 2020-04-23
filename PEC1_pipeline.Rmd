@@ -20,6 +20,8 @@ setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1")
 library(affy)
 library(simpleaffy)
 library(affyPLM)
+library(limma)
+library(statmod)
 ```
 ***
 
@@ -158,6 +160,91 @@ plot(clust.euclid.average, main="Clúster jerárquico de Datos crudos",  hang=-1
 ```
 
 Como podemos ver, ahora sí hemos logrado tener unos datos que se muevan todos en los mismos valores, pudiendo analizarlos de manera más segura y habiendo quitado parte del sesgo que pudieran traer por la disparidad previa de unos con otros. En los tres gráficos que aquí se muestran, se puede comprobar que ahora, al moverse adecuadamente las expresiones de los genes dentro de un mismo rango, llevar a cabo los siguientes análisis será más adecuado. Pormenorizadamente, los boxplot lograron establecerse en un mismo grado de luminiscencia, el histograma logarítmico homogeneizarse en las tres áreas cerebrales estudiadas y el clústering jerárquico ser capaz de subdividir los datos en las tres secciones diferenciadas de manera más clara y acertada frente a los datos en crudo.
+
+##6. + 7. Identificación de genes diferencialmente expresados y anotación de los resultados
+
+Aqui vemos cómo los datos se distribuyen claramente diferenciados según las áreas del cerebro de las que fueron extraídas, aunque el hecho de si eran Control o Experimental no está tan claro.
+
+En primer lugar, ya que no viene hecho por defecto, será necesario añadir los datos fenotípicos correspondientes a los datos del problema para así poder factorizar en niveles la muestra de datos:
+
+```{r}
+feno@data[,2] <- c(rep("CA3",14),rep("CA1",12),rep("DG",14))
+feno@data[,3] <- c(rep("Control",7),rep("Activado",7),rep("Control",6),rep("Activado",6),rep("Control",7),rep("Activado",7))
+colnames(feno@data)[2] <- "area"
+colnames(feno@data)[3] <- "estado"
+head(feno@data,2)
+area <- factor(feno$area)
+estado <- factor(feno$estado)
+
+grupo <- interaction(area,estado)
+plotMDS(matriz,col=as.numeric(grupo))
+modelo <- model.matrix(~0+grupo)
+ajuste <- voom(matriz,modelo,plot=T)
+```
+
+La función *voom* nos permite ver a través de un gráfico la estimación de la relación entre la media y la varianza del log-counts, aportando un peso para cada observación.
+
+Ahora procedemos a utilizar el modelo linear a través de mínimos cuadrados con la función de *lmFit*:
+
+```{r}
+ajuste2 <- lmFit(ajuste,modelo)
+head(coef(ajuste2))
+```
+
+Y ahora ya podemos hacer comparaciones entre grupos, a través de los contraster de la función *makeContrast*.
+
+Haremos tres comparaciones en primer lugar, para ver si existe diferencia entre la expresión de genes en cada área con sus respectivos controles a sujetos experimentales:
+
+1. Comparación áreas **CA3 Control vs Activadas**:
+```{r}
+contraste_CA3 <- makeContrasts(grupoCA3.Control - grupoCA3.Activado, levels = colnames(coef(ajuste2)))
+contraste_CA3
+gen_CA3 <- contrasts.fit(ajuste2,contraste_CA3)
+gen_CA3 <- eBayes(gen_CA3)
+table_CA3 <- topTable(gen_CA3,sort.by = "P",n=Inf)
+head(table_CA3,5)
+length(which(table_CA3$adj.P.Val < 0.05))
+table_CA3$Genes <- rownames(table_CA3)
+table_CA3 <- table_CA3[,c("Genes",names(table_CA3)[1:6])]
+write.table(table_CA3,file="CA3_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+```
+
+En esta comparación encontraremos **317** genes diferencialmente expresados (DE) con una significación de **umbral 0.05**. Además, los resultados de estos genes se guardarán en un *.txt*.
+
+
+2. Comparación áreas **CA1 Control vs Activadas**:
+```{r}
+contraste_CA1 <- makeContrasts(grupoCA1.Control - grupoCA1.Activado, levels = colnames(coef(ajuste2)))
+contraste_CA1
+gen_CA1 <- contrasts.fit(ajuste2,contraste_CA1)
+gen_CA1 <- eBayes(gen_CA1)
+table_CA1 <- topTable(gen_CA1,sort.by = "P",n=Inf)
+head(table_CA1,5)
+length(which(table_CA1$adj.P.Val < 0.5))
+table_CA1$Genes <- rownames(table_CA1)
+table_CA1 <- table_CA1[,c("Genes",names(table_CA1)[1:6])]
+write.table(table_CA1,file="CA1_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+```
+
+En este caso, ha sido necesario subir el umbral a **0.5** para encontrar **93** genes DE. Además, los resultados de estos genes se guardarán en un *.txt*.
+
+
+3. Comparación áreas **DG Control vs Activadas**:
+```{r}
+contraste_DG <- makeContrasts(grupoDG.Control - grupoDG.Activado, levels = colnames(coef(ajuste2)))
+contraste_DG
+gen_DG <- contrasts.fit(ajuste2,contraste_DG)
+gen_DG <- eBayes(gen_DG)
+table_DG <- topTable(gen_DG,sort.by = "P",n=Inf)
+head(table_DG,5)
+length(which(table_DG$adj.P.Val < 0.05))
+table_DG$Genes <- rownames(table_DG)
+table_DG <- table_DG[,c("Genes",names(table_DG)[1:6])]
+write.table(table_DG,file="DG_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+```
+
+En esta comparación encontraremos **1052** genes DE con una significación de **umbral 0.05**. Además, los resultados de estos genes se guardarán en un *.txt*.
+
 
 
 
