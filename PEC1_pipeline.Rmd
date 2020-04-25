@@ -1,5 +1,5 @@
 ---
-title: "PEC1 ADO"
+title: "PEC1 Análisis de datos Ómicos"
 author: "Sara Álvarez González"
 date: "21 de abril de 2020"
 output: 
@@ -16,12 +16,363 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r paquetes, include=FALSE}
-setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1-master")
+setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1")
+library(affy)
+library(simpleaffy)
+library(affyPLM)
+library(limma)
+library(statmod)
+library(biomaRt)
+library(topGO)
 ```
 ***
 
+##1. Identificar que grupos hay y a qué grupo pertenece cada muestra.
+
+Tras haber descargado los archivos **.CEL** correspondientes al estudio elegido en la página GEO, será necesario hacerles un primer reconocimiento. Este primer paso es esencial para, a través de gráficos o resúmenes numéricos, a primera vista determinar si es preciso llevar a cabo correcciones de grandes anomalías.
+
+Leemos los ficheros .CEL presentes en el directorio de trabajo con la función *ReadAffy*.
+```{r}
+archivos <- ReadAffy()
+```
+
+Nos interesa por tanto poder estudiar los datos fenotípicos que se encuentran indicando además el grupo al que va a pertener cada una. 
+
+En este trabajo en cuestión, vamos a encontrarnos con 40 muestras diferentes, correspondientes a muestras realizadas en ratones de tres áreas cerebrales diferentes (CA3, CA1, DG), la mitad siendo entrenadas previamente, y la mitad no. Renonmbraremos por tanto los datos fenotipicos con el nombre adecuado según la muestra se trate de una parte u otra, y hubiera sido entrenado el ratón o no.
+
+```{r}
+feno <- archivos@phenoData
+
+nombres=c(rep("CA3_cont",7),rep("CA3_act",7),rep("CA1_cont",6),rep("CA1_act",6),rep("DG_cont",7),rep("DG_act",7))
+nombres<-paste0(nombres,"_")
+CA3_control<-paste0(nombres[1:7],1:7)
+CA3_exp<-paste0(nombres[8:14],1:7)
+CA1_control<-paste0(nombres[15:20],1:6)
+CA1_exp<-paste0(nombres[21:26],1:6)
+DG_control<-paste0(nombres[27:33],1:7)
+DG_exp<-paste0(nombres[34:40],1:7)
+nombres <- c(CA3_control,CA3_exp,CA1_control,CA1_exp,DG_control,DG_exp)
+
+feno@data[,1]=nombres
+feno@data
+feno$sample
+```
+
+De esta forma forma obtendremos tantos los datos de expresión como los fenotípicos de la muestra. También podemos hacer este mismo procedimiento, pero gracias a la importación de los datos a través del archivo .txt (y no del .CEL) que nos aporta el problema.
+
+```{r}
+fenotipo<-file.path("matrix.txt")
+fenotipo <- as.matrix(read.table(file = fenotipo, header = T, sep = "\t", row.names = 1, as.is = T))
+dim(fenotipo)
+#las filas serán los genes y sus expresiones
+print(rownames(fenotipo), max = 5)
+#las columnas serán los anteriores nombres de los archivos, que de hecho podemos cambiar como hicimos en la otra manera de hacerlo anterior
+colnames(fenotipo)
+colnames(fenotipo)=nombres
+colnames(fenotipo)
+```
+
+##2. Control de calidad de los datos crudos.
+
+En primer lugar se ha hecho una análisis del control de calidad de los datos a través de datos gráficos, más intuitivamente analizables como facilitador de un screening sobre los datos crudos:
+  
+```{r,warning=FALSE}
+#boxplot
+colores = c(rep("red",14),rep("blue",12),rep("yellow",14))
+boxplot(archivos,las=2, cex.axis=0.7, names=nombres, col=colores,ylab="Luminiscencia")
+#histograma
+hist(archivos,col=colores)
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+#clúster jerárquico
+clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
+plot(clust.euclid.average, main="Clúster jerárquico de Datos crudos",  hang=-1)
+```
+
+Los dos primeros (boxplot e histograma) son los dos gráficos que mejor nos permiten obsevar las disparidades de estos datos en crudo (*raw data*). Esto es así debido a que el primero de ellos nos permite ver la distribución de las luminiscencias, mientras que el segundo ver la similitud en forma y posición de las diferentes muestras.Se ha facilitado la interpretación de estos dos primeros gráficos a través de colores, pintando los de cada región de un color, incluyendo a los de control o experimentales.
+
+A simple vista, el boxplot nos muestra cierta variabilidad entre los datos, aunque vemos que los que son de la misma región van a moverse por una zona similar de luminiscencia, aunque no es posible decir si esta relación es significativa a simple vista. En cuanto al histograma, podemos observar que de nuevo, aparentemente, se mueven por las mismas zonas aquellas observaciones realizadas a las zonas homónimas.
+
+El tercer gráfico elegido para realizar una pequeña visual, será el de la jerarquización de las muestras a través de clústers. De manera aparente, da la sensación de que sí que existe cierta distinción entre las tres zonas analizadas, aunque tal y como son los datos resulta difícil sacar una conclusión.
+
+Será por tanto necesario, previo a sacar ninguna conclusión o analizarlos, llevar a cabo una normalización de los mismos.
+
+Sin embargo, antes de pasar a la normalización, también resulta interesante echar un ojo al resultado del control de calidad que la función *qc* nos reporta:
+
+```{r}
+calidad <- qc(archivos)
+plot(calidad)
+```
+
+Este informe nos enseña, desde un gráfico parcialmente descriptivo: el nombre del fichero .CEL, el porcentaje de sondas que han detectado fluorescencia (con la fluorescencia de fondo) y en la tercera columna, siendo la más destacable en nuestro caso, nos va a decir, en un primer momento, la calidad relativa a problemas de degradación del RNA. Debido a que en nuestro caso, todas van a ser azules, esto indicaría que no es algo por lo que deberíamos descartar ninguna de las muestras.
+
+De manera extra, y aunque tampoco resulta demasiado funcional teniendo en cuenta la cantidad de datos con los que estamos trabajando, también sería posible hacer un análisis de calidad representando una imagen global de la fluorescencia de los microarrays con la función *image* con la columna que seleccionemos (fichero .CEL, es decir, la muestra entera).
+
+```{r}
+image(archivos[,6],col=rainbow(100),main="CA3_cont_6")
+```
 
 
+##3. Normalización
+
+Para llevar a cabo esta tarea, se ha elegido el método de **RMA**, debido que se trata de una muestra de microarray de un color, concretamente Affymetrix. Este método de resumen y normalización va a aportar mejores antes las deficiencia de los anteriores métodos (MAS4 y MAS5). Los pasos que va a llevar a cabo este **Robust multi-array average** serán: un ajuste del ruido de fondo, la toma de logaritmos de base 2 ajustados por el anterior, la normalización por cuantiles de los valores anteriores y estimación de las intensidades para, en este caso, cada gen para cada conjunto de ARN tumoral que lo componen.
+
+```{r}
+normalizacion <- rma(archivos)
+normalizacion
+class(normalizacion)
+matriz <- exprs(normalizacion)
+head(matriz,2)
+```
+
+Es de destacar que para llevar a cabo esta normalización, antes de convertirla en una matriz facilmente manipulable para posteriores funciones, el objeto que nos devuelve será uno del tipo *ExpressionSet*, como el trabajado en los foros. Como su propia clase lo define, es como un paso intermedio entre los datos tal y como nos los dan, a manipularlos de manera sencilla (subconjuntos de datos, copia, cambio de formato...). Obtendremos así, con una simple transformación con la función *exprs*, una matriz con los datos sumarizados y normalizados. 
+
+```{r}
+dim(matriz)
+```
+
+Es decir, obtenemos una matriz con la expresión del ARN como filas, mientras que como columnas estarán los 40 experimentos con las distintas condiciones comentadas previamente. De hecho, por comodidad podemos cambiárselo para que sea más sencillo, como anteriormente.
+
+```{r}
+colnames(matriz) <- nombres
+head(matriz,2)
+```
+
+
+##4. Control de calidad de los datos normalizados
+
+De la misma manera que hicimos previamente, la representación gráfica será la mejor manera de llevar a cabo un control de calidad de los datos, en este caso normalizados. Como los datos siguen siendo los mismos, utilizaremos de nuevo los dos métodos gráficos que más sentido tenían en nuestro trabajo. Como complemento, es interesante si ponemos al lado la gráfica correspondiente a cuando estaban sin normalizar, percibiendo mejor el cambio de un caso a otro:
+
+```{r}
+#boxplot
+par(mfrow=c(1,2))
+boxplot(normalizacion,las=2, cex.axis=0.7,names=nombres, col=colores,ylab="Luminiscencia",main="Datos normalizados")
+boxplot(archivos,las=2, cex.axis=0.7, names=nombres, col=colores,ylab="Luminiscencia",main="Datos crudos")
+#histograma
+par(mfrow=c(1,2))
+hist(normalizacion,col=colores,main="Datos normalizados")
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+hist(archivos,col=colores,main="Datos crudos")
+legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
+#cluster
+par(mfrow=c(1,2))
+clust.euclid.average <- hclust(dist(t(exprs(normalizacion))),method="average")
+plot(clust.euclid.average, main="Clúster jerárquico de Datos normalizados",  hang=-1)
+clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
+plot(clust.euclid.average, main="Clúster jerárquico de Datos crudos",  hang=-1)
+```
+
+Como podemos ver, ahora sí hemos logrado tener unos datos que se muevan todos en los mismos valores, pudiendo analizarlos de manera más segura y habiendo quitado parte del sesgo que pudieran traer por la disparidad previa de unos con otros. En los tres gráficos que aquí se muestran, se puede comprobar que ahora, al moverse adecuadamente las expresiones de los genes dentro de un mismo rango, llevar a cabo los siguientes análisis será más adecuado. Pormenorizadamente, los boxplot lograron establecerse en un mismo grado de luminiscencia, el histograma logarítmico homogeneizarse en las tres áreas cerebrales estudiadas y el clústering jerárquico ser capaz de subdividir los datos en las tres secciones diferenciadas de manera más clara y acertada frente a los datos en crudo.
+
+##6. + 7. Identificación de genes diferencialmente expresados y anotación de los resultados
+
+Aquí vemos cómo los datos se distribuyen claramente diferenciados según las áreas del cerebro de las que fueron extraídas, aunque el hecho de si eran Control o Experimental no está tan claro.
+
+En primer lugar, ya que no viene hecho por defecto, será necesario añadir los datos fenotípicos correspondientes a los datos del problema para así poder factorizar en niveles la muestra de datos:
+
+```{r}
+feno@data[,2] <- c(rep("CA3",14),rep("CA1",12),rep("DG",14))
+feno@data[,3] <- c(rep("Control",7),rep("Activado",7),rep("Control",6),rep("Activado",6),rep("Control",7),rep("Activado",7))
+colnames(feno@data)[2] <- "area"
+colnames(feno@data)[3] <- "estado"
+head(feno@data,2)
+area <- factor(feno$area)
+estado <- factor(feno$estado)
+
+grupo <- interaction(area,estado)
+plotMDS(matriz,col=as.numeric(grupo))
+modelo <- model.matrix(~0+grupo)
+ajuste <- voom(matriz,modelo,plot=T)
+```
+
+La función *voom* nos permite ver a través de un gráfico la estimación de la relación entre la media y la varianza del log-counts, aportando un peso para cada observación.
+
+Ahora procedemos a utilizar el modelo linear a través de mínimos cuadrados con la función de *lmFit*:
+
+```{r}
+ajuste2 <- lmFit(ajuste,modelo)
+head(coef(ajuste2))
+```
+
+Y ahora ya podemos hacer comparaciones entre grupos, a través de los contraster de la función *makeContrast*.
+
+Haremos tres comparaciones en primer lugar, para ver si existe diferencia entre la expresión de genes en cada área con sus respectivos controles a sujetos experimentales:
+
+1. Comparación áreas **CA3 Control vs Activadas**:
+```{r}
+contraste_CA3 <- makeContrasts(grupoCA3.Control - grupoCA3.Activado, levels = colnames(coef(ajuste2)))
+contraste_CA3
+gen_CA3 <- contrasts.fit(ajuste2,contraste_CA3)
+gen_CA3 <- eBayes(gen_CA3)
+table_CA3 <- topTable(gen_CA3,sort.by = "P",n=Inf)
+head(table_CA3,5)
+length(which(table_CA3$adj.P.Val < 0.05))
+table_CA3$Genes <- rownames(table_CA3)
+table_CA3 <- table_CA3[,c("Genes",names(table_CA3)[1:6])]
+write.table(table_CA3,file="CA3_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+```
+
+En esta comparación encontraremos **317** genes diferencialmente expresados (DE) con una significación de **umbral 0.05**. Además, los resultados de estos genes se guardarán en un *.txt*.
+
+
+2. Comparación áreas **CA1 Control vs Activadas**:
+```{r}
+contraste_CA1 <- makeContrasts(grupoCA1.Control - grupoCA1.Activado, levels = colnames(coef(ajuste2)))
+contraste_CA1
+gen_CA1 <- contrasts.fit(ajuste2,contraste_CA1)
+gen_CA1 <- eBayes(gen_CA1)
+table_CA1 <- topTable(gen_CA1,sort.by = "P",n=Inf)
+head(table_CA1,5)
+length(which(table_CA1$adj.P.Val < 0.05))
+table_CA1$Genes <- rownames(table_CA1)
+table_CA1 <- table_CA1[,c("Genes",names(table_CA1)[1:6])]
+write.table(table_CA1,file="CA1_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+```
+
+En este caso, a pesar de encontrarse el umbral ya a **0.05**, siendo lo máximo a lo que se debería admitir para que sea efectivamente significativa esta sobreexpresión de genes DE, el resultado nos da **0**. Debido a ello, este área podemos decir que no va a encontrar diferencias significativas en cuanto a expresión habiéndose activado con el experimento llevado a cabo, frente a las muestras control, no teniéndola en cuenta para la búsqueda de significación biológica. Aún así, los resultados de estos genes también se guardarán en un *.txt*.
+
+
+3. Comparación áreas **DG Control vs Activadas**:
+```{r}
+contraste_DG <- makeContrasts(grupoDG.Control - grupoDG.Activado, levels = colnames(coef(ajuste2)))
+contraste_DG
+gen_DG <- contrasts.fit(ajuste2,contraste_DG)
+gen_DG <- eBayes(gen_DG)
+table_DG <- topTable(gen_DG,sort.by = "P",n=Inf)
+head(table_DG,5)
+length(which(table_DG$adj.P.Val < 0.05))
+table_DG$Genes <- rownames(table_DG)
+table_DG <- table_DG[,c("Genes",names(table_DG)[1:6])]
+write.table(table_DG,file="DG_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
+```
+
+En esta comparación encontraremos **1052** genes DE con una significación de **umbral 0.05**. Además, los resultados de estos genes se guardarán en un *.txt*.
+
+
+##8. Comparación entre distintas comparaciones (si hay más de una comparación, ver que genes han sido seleccionados en más de una comparación)
+
+En este apartado, seleccionaremos aquellos genes DE que han destacado como tal en las dos áreas cerebrales que aquí estamos analizando (debido al descarte de CA1 por lo que se explicó en el apartado anterior). 
+
+```{r}
+length(which(table_CA3$adj.P.Val < 0.05 & table_DG$adj.P.Val < 0.05))
+```
+
+La comparación muestra por tanto:
+
+- Genes DE en CA3 vs DG: **317**, existiendo por tanto cierta cantidad de genes DE no coincidentes.
+
+
+##9. Análisis de significación biológica (“Gene Enrichment Analysis”)
+
+Para realizar este análisis, se utilizará el test de enrichment de términos GO, junto con los datos de los genes DE, empleando el estadísitico del **test de Fisher**.
+
+Primero deberemos de crear un objeto tipo **topGOdata** que contenga todos los ID de los genes DE y sus puntualciones, las anotaciones GO, la estructura jerárquica GO y toda la otra información necesaria para llevar a cabo el análisis de enriquecimiento.
+
+Debemos por tanto crear las demás variables para unirlas todas en el nuevo objeto. Primero será necesario obtener los símbolos de los genes y los GO asociados con la librería *biomaRt*:
+
+```{r}
+#Obtenemos ID
+ensembl <- useEnsembl(biomart = "ensembl")
+searchDatasets(mart = ensembl, pattern = "(R|r)at")
+
+#Consultamos cómo se llama la variable que necesitaremos buscar
+ensembl <- useEnsembl(biomart = "ensembl",dataset = "rnorvegicus_gene_ensembl")
+annotation(archivos)
+searchFilters(mart = ensembl,pattern = "rae230a")
+searchAttributes(mart = ensembl,pattern = "GO")
+searchAttributes(mart = ensembl,pattern = "symbol")
+
+biom <- useMart(biomart = "ensembl",dataset = "rnorvegicus_gene_ensembl")
+```
+
+En este caso, para el dataset **rnorvegicus_gene_ensembl** emplearemos como filter **affy_rae230a** y como atributos **rgd_symbol** y **go_id**. 
+
+Como los genes DE coincidentes en las dos áreas son los totales del área CA3 (recordemos que solo trabajamos con CA3 y DG), se cogen los ID de esta tabla en concreto, guardando solo los que fueron significativos en ese caso. Convertimos al nombre del gen correspondientes y guardamos ese vector:
+
+```{r}
+ID_DE <- table_CA3[table_CA3$adj.P.Val < 0.05,]
+ID_DE <- rownames(ID_DE)
+
+# transformamos a un lengaje que nos ayude a comparar posteriormente
+ID_DE<-getBM(attributes =  c("rgd_symbol"), filters = "affy_rae230a", values =ID_DE, mart = biom)
+
+ID_DE <- ID_DE[,1]
+
+length(ID_DE)
+```
+
+Los genes DE se redujeron debido a que la misma nomenclatura estaba representando al mismo gen en alguna ocasión, quedando **276**
+
+Los genes totales son el conjunto de genes del cual extraimos los genes sobreexpresados, es decir, el conjunto de los genes analizados. De aquí será necesario además del ID, conseguir el GO:
+
+```{r}
+gen_total <- rownames(matriz)
+length(gen_total)
+genes_ID<-getBM(attributes =  c("go_id","rgd_symbol"), filters = "affy_rae230a", values =gen_total, mart = biom)
+
+# Limpiamos los que no tiene GO para que no interfiera en el análisis posterior
+borrar <- which(genes_ID$go_id=="")
+genes_ID <- genes_ID[-borrar]
+dim(genes_ID)
+
+# Convertir los genes totales en una lista de los genes y los GO asociados
+lista_genes <- unique(genes_ID$rgd_symbol)
+lista <- list()
+for (i in lista_genes) {
+  lista[[i]] = genes_ID[which(genes_ID$rgd_symbol==i),]$go_id
+}
+head(lista,2)
+```
+
+Con todos estos datos, ya podemos llevar a cabo el Enrichment analysis y el test de Fisher:
+
+```{r}
+genes <- names(lista)
+genes_comparados <- factor(as.integer(genes %in% ID_DE))
+table(genes_comparados)
+names(genes_comparados) <- genes
+
+GO_data <- new("topGOdata", ontology="BP", allGenes=genes_comparados,annot = annFUN.gene2GO, gene2GO = lista)
+
+resFisher = runTest(GO_data, algorithm = 'classic', statistic = 'fisher')
+resFisher
+```
+
+Habiendo **14859** GO terms registrados, de los cuales **377** van a poseer una significancia *p < 0.01*, fueron seleccionados solo los 15 primeros, facilitando así un gráfico más sencillo de leer y comentar en el documento de desarrollo:
+
+```{r}
+Nodes = 15
+allRes = GenTable(GO_data, classicFisher = resFisher, topNodes = Nodes)
+head(allRes)
+
+
+# Plots
+plotEnrich = function(allRes, title){
+  # Plotting!
+  layout(t(1:2), widths = c(8,1))
+  par(mar=c(4, .5, .7, .7), oma = c(3, 15, 3, 4), las = 1)
+  
+  rbPal = colorRampPalette(c('red', 'white', 'blue'))
+  pvalue = as.numeric(gsub("<", "", allRes$classicFisher))
+  max_value = as.integer(max(-log(pvalue))) + 1
+  pv_range = exp(-seq(max_value, 0, -1))
+  allRes$Color = rbPal(max_value) [cut(pvalue, pv_range)]
+  
+  o = order(allRes$Significant, decreasing = T)
+  barplot(allRes$Significant[o], names.arg = allRes$Term[o], las = 2, horiz = T, col = allRes$Color[o],
+          xlab = "Number of sequences", main = title, cex.names = 0.85)
+  
+  image(0, seq(1, max_value), t(seq_along(seq(1, max_value))), col = rev(rbPal(max_value)), axes = F, ann = F)
+  pv_label = exp(-seq(log(1), -log(min(pvalue)), l = 6))
+  pv_label = formatC(pv_label, format = "e", digits = 2)
+  axis(4, at = seq(1, max_value, length = 6), labels = c(1, pv_label[2:6]), cex.axis = 0.85)
+  title("p.value", cex.main = 0.6)
+}
+
+plotEnrich(allRes = allRes, title = 'Enrichment Analysis')
+
+```
+
+Aquí podemos ver cómo los procesos biológicos más sobreexpresados serán los relacionados con la señal sináptica, la señalización trans-sináptica, la señalización anterógrada sináptica y la transmisión química sináptica, entre otros procesos también relacionados con la sinapsis y el procesamiento de transmisión de información. En definitiva, que tal y como se comenta en el paper asociado a estos datos, los genes DE en la región CA3 van a indicar que esta región va a mostrar mecanismos de remodelación sináptica, lo que puede servir como base para la codificación rápida de nueva información en la memoria a largo plazo. *(explicación más extensa en el documento redactado)*  
 
 
 </div>
