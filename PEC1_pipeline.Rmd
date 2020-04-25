@@ -1,5 +1,5 @@
 ---
-title: "PEC1 ADO"
+title: "PEC1 Análisis de datos Ómicos"
 author: "Sara Álvarez González"
 date: "21 de abril de 2020"
 output: 
@@ -22,6 +22,8 @@ library(simpleaffy)
 library(affyPLM)
 library(limma)
 library(statmod)
+library(biomaRt)
+library(topGO)
 ```
 ***
 
@@ -90,7 +92,7 @@ Los dos primeros (boxplot e histograma) son los dos gráficos que mejor nos perm
 
 A simple vista, el boxplot nos muestra cierta variabilidad entre los datos, aunque vemos que los que son de la misma región van a moverse por una zona similar de luminiscencia, aunque no es posible decir si esta relación es significativa a simple vista. En cuanto al histograma, podemos observar que de nuevo, aparentemente, se mueven por las mismas zonas aquellas observaciones realizadas a las zonas homónimas.
 
-El tercer gráfico elegido para realizar una pequeña visula, será el de la jerarquización de las muestras a través de clústers. De manera aparente, da la sensación de que sí que existe cierta distinción entre las tres zonas analizadas, aunque tal y como son los datos resulta difícil sacar una conclusión.
+El tercer gráfico elegido para realizar una pequeña visual, será el de la jerarquización de las muestras a través de clústers. De manera aparente, da la sensación de que sí que existe cierta distinción entre las tres zonas analizadas, aunque tal y como son los datos resulta difícil sacar una conclusión.
 
 Será por tanto necesario, previo a sacar ninguna conclusión o analizarlos, llevar a cabo una normalización de los mismos.
 
@@ -103,7 +105,7 @@ plot(calidad)
 
 Este informe nos enseña, desde un gráfico parcialmente descriptivo: el nombre del fichero .CEL, el porcentaje de sondas que han detectado fluorescencia (con la fluorescencia de fondo) y en la tercera columna, siendo la más destacable en nuestro caso, nos va a decir, en un primer momento, la calidad relativa a problemas de degradación del RNA. Debido a que en nuestro caso, todas van a ser azules, esto indicaría que no es algo por lo que deberíamos descartar ninguna de las muestras.
 
-De manera extra, ya que tampoco resulta demasiado funcional teniendo en cuenta la cantidad de datos con los que estamos trabajando, también sería posible hacer un análisis de calidad representando una imagen global de la fluorescencia de los microarrays con la función *image* con la columna que seleccionemos (fichero .CEL, es decir, la muestra entera).
+De manera extra, y aunque tampoco resulta demasiado funcional teniendo en cuenta la cantidad de datos con los que estamos trabajando, también sería posible hacer un análisis de calidad representando una imagen global de la fluorescencia de los microarrays con la función *image* con la columna que seleccionemos (fichero .CEL, es decir, la muestra entera).
 
 ```{r}
 image(archivos[,6],col=rainbow(100),main="CA3_cont_6")
@@ -163,7 +165,7 @@ Como podemos ver, ahora sí hemos logrado tener unos datos que se muevan todos e
 
 ##6. + 7. Identificación de genes diferencialmente expresados y anotación de los resultados
 
-Aqui vemos cómo los datos se distribuyen claramente diferenciados según las áreas del cerebro de las que fueron extraídas, aunque el hecho de si eran Control o Experimental no está tan claro.
+Aquí vemos cómo los datos se distribuyen claramente diferenciados según las áreas del cerebro de las que fueron extraídas, aunque el hecho de si eran Control o Experimental no está tan claro.
 
 En primer lugar, ya que no viene hecho por defecto, será necesario añadir los datos fenotípicos correspondientes a los datos del problema para así poder factorizar en niveles la muestra de datos:
 
@@ -220,13 +222,13 @@ gen_CA1 <- contrasts.fit(ajuste2,contraste_CA1)
 gen_CA1 <- eBayes(gen_CA1)
 table_CA1 <- topTable(gen_CA1,sort.by = "P",n=Inf)
 head(table_CA1,5)
-length(which(table_CA1$adj.P.Val < 0.5))
+length(which(table_CA1$adj.P.Val < 0.05))
 table_CA1$Genes <- rownames(table_CA1)
 table_CA1 <- table_CA1[,c("Genes",names(table_CA1)[1:6])]
 write.table(table_CA1,file="CA1_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
 ```
 
-En este caso, ha sido necesario subir el umbral a **0.5** para encontrar **93** genes DE. Además, los resultados de estos genes se guardarán en un *.txt*.
+En este caso, a pesar de encontrarse el umbral ya a **0.05**, siendo lo máximo a lo que se debería admitir para que sea efectivamente significativa esta sobreexpresión de genes DE, el resultado nos da **0**. Debido a ello, este área podemos decir que no va a encontrar diferencias significativas en cuanto a expresión habiéndose activado con el experimento llevado a cabo, frente a las muestras control, no teniéndola en cuenta para la búsqueda de significación biológica. Aún así, los resultados de estos genes también se guardarán en un *.txt*.
 
 
 3. Comparación áreas **DG Control vs Activadas**:
@@ -248,23 +250,129 @@ En esta comparación encontraremos **1052** genes DE con una significación de *
 
 ##8. Comparación entre distintas comparaciones (si hay más de una comparación, ver que genes han sido seleccionados en más de una comparación)
 
-En este apartado, seleccionaremos aquellos genes DE que han destacado como tal en las tres áreas cerebrales que aquí estamos analizados, además de hacer también las comparaciones de CA3-CA1, CA1-DG y CA3-DG.
-
-Lo primero que hay que tener en cuenta, es que si queremos buscar genes coincidentes, solo podremos utilizar el **umbral 0.05** de significación en el CA3-DG, debido a que como vimos, en el caso de CA1 hemos tenido que aumentarlo a **umbral 0.5** debido a que sino no obteníamos ninguno. Con lo cual, en el resto será empleado el **umbral 0.5**, pudiendo salir genes en CA3 y DG que antes no consideramos para sus correspondientes tablas.
+En este apartado, seleccionaremos aquellos genes DE que han destacado como tal en las dos áreas cerebrales que aquí estamos analizando (debido al descarte de CA1 por lo que se explicó en el apartado anterior). 
 
 ```{r}
-length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5))
-length(which(table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
 length(which(table_CA3$adj.P.Val < 0.05 & table_DG$adj.P.Val < 0.05))
-length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
 ```
 
-Las comparaciones muestran por tanto:
+La comparación muestra por tanto:
 
-1. Genes DE en CA3 vs CA1: **93**, implicando que todos los genes DE en CA1 también lo eran en CA3.
-2. Genes DE en CA1 vs DG: **93**, implicando que todos los genes DE en CA1 también lo eran en DG.
-3. Genes DE en CA3 vs DG: **317**, existiendo por tanto cierta cantidad de genes DE no coincidentes.
-4. Genes DE en CA3 vs CA1 vs DG: **93**, implicando que todos los genes DE en CA1, como se vio en los casos 1 y 2, también lo fueron en las otras dos áreas.
+- Genes DE en CA3 vs DG: **317**, existiendo por tanto cierta cantidad de genes DE no coincidentes.
+
+
+##9. Análisis de significación biológica (“Gene Enrichment Analysis”)
+
+Para realizar este análisis, se utilizará el test de enrichment de términos GO, junto con los datos de los genes DE, empleando el estadísitico del **test de Fisher**.
+
+Primero deberemos de crear un objeto tipo **topGOdata** que contenga todos los ID de los genes DE y sus puntualciones, las anotaciones GO, la estructura jerárquica GO y toda la otra información necesaria para llevar a cabo el análisis de enriquecimiento.
+
+Debemos por tanto crear las demás variables para unirlas todas en el nuevo objeto. Primero será necesario obtener los símbolos de los genes y los GO asociados con la librería *biomaRt*:
+
+```{r}
+#Obtenemos ID
+ensembl <- useEnsembl(biomart = "ensembl")
+searchDatasets(mart = ensembl, pattern = "(R|r)at")
+
+#Consultamos cómo se llama la variable que necesitaremos buscar
+ensembl <- useEnsembl(biomart = "ensembl",dataset = "rnorvegicus_gene_ensembl")
+annotation(archivos)
+searchFilters(mart = ensembl,pattern = "rae230a")
+searchAttributes(mart = ensembl,pattern = "GO")
+searchAttributes(mart = ensembl,pattern = "symbol")
+
+biom <- useMart(biomart = "ensembl",dataset = "rnorvegicus_gene_ensembl")
+```
+
+En este caso, para el dataset **rnorvegicus_gene_ensembl** emplearemos como filter **affy_rae230a** y como atributos **rgd_symbol** y **go_id**. 
+
+Como los genes DE coincidentes en las dos áreas son los totales del área CA3 (recordemos que solo trabajamos con CA3 y DG), se cogen los ID de esta tabla en concreto, guardando solo los que fueron significativos en ese caso. Convertimos al nombre del gen correspondientes y guardamos ese vector:
+
+```{r}
+ID_DE <- table_CA3[table_CA3$adj.P.Val < 0.05,]
+ID_DE <- rownames(ID_DE)
+
+# transformamos a un lengaje que nos ayude a comparar posteriormente
+ID_DE<-getBM(attributes =  c("rgd_symbol"), filters = "affy_rae230a", values =ID_DE, mart = biom)
+
+ID_DE <- ID_DE[,1]
+
+length(ID_DE)
+```
+
+Los genes DE se redujeron debido a que la misma nomenclatura estaba representando al mismo gen en alguna ocasión, quedando **276**
+
+Los genes totales son el conjunto de genes del cual extraimos los genes sobreexpresados, es decir, el conjunto de los genes analizados. De aquí será necesario además del ID, conseguir el GO:
+
+```{r}
+gen_total <- rownames(matriz)
+length(gen_total)
+genes_ID<-getBM(attributes =  c("go_id","rgd_symbol"), filters = "affy_rae230a", values =gen_total, mart = biom)
+
+# Limpiamos los que no tiene GO para que no interfiera en el análisis posterior
+borrar <- which(genes_ID$go_id=="")
+genes_ID <- genes_ID[-borrar]
+dim(genes_ID)
+
+# Convertir los genes totales en una lista de los genes y los GO asociados
+lista_genes <- unique(genes_ID$rgd_symbol)
+lista <- list()
+for (i in lista_genes) {
+  lista[[i]] = genes_ID[which(genes_ID$rgd_symbol==i),]$go_id
+}
+head(lista,2)
+```
+
+Con todos estos datos, ya podemos llevar a cabo el Enrichment analysis y el test de Fisher:
+
+```{r}
+genes <- names(lista)
+genes_comparados <- factor(as.integer(genes %in% ID_DE))
+table(genes_comparados)
+names(genes_comparados) <- genes
+
+GO_data <- new("topGOdata", ontology="BP", allGenes=genes_comparados,annot = annFUN.gene2GO, gene2GO = lista)
+
+resFisher = runTest(GO_data, algorithm = 'classic', statistic = 'fisher')
+resFisher
+```
+
+Habiendo **14859** GO terms registrados, de los cuales **377** van a poseer una significancia *p < 0.01*, fueron seleccionados solo los 15 primeros, facilitando así un gráfico más sencillo de leer y comentar en el documento de desarrollo:
+
+```{r}
+Nodes = 15
+allRes = GenTable(GO_data, classicFisher = resFisher, topNodes = Nodes)
+head(allRes)
+
+
+# Plots
+plotEnrich = function(allRes, title){
+  # Plotting!
+  layout(t(1:2), widths = c(8,1))
+  par(mar=c(4, .5, .7, .7), oma = c(3, 15, 3, 4), las = 1)
+  
+  rbPal = colorRampPalette(c('red', 'white', 'blue'))
+  pvalue = as.numeric(gsub("<", "", allRes$classicFisher))
+  max_value = as.integer(max(-log(pvalue))) + 1
+  pv_range = exp(-seq(max_value, 0, -1))
+  allRes$Color = rbPal(max_value) [cut(pvalue, pv_range)]
+  
+  o = order(allRes$Significant, decreasing = T)
+  barplot(allRes$Significant[o], names.arg = allRes$Term[o], las = 2, horiz = T, col = allRes$Color[o],
+          xlab = "Number of sequences", main = title, cex.names = 0.85)
+  
+  image(0, seq(1, max_value), t(seq_along(seq(1, max_value))), col = rev(rbPal(max_value)), axes = F, ann = F)
+  pv_label = exp(-seq(log(1), -log(min(pvalue)), l = 6))
+  pv_label = formatC(pv_label, format = "e", digits = 2)
+  axis(4, at = seq(1, max_value, length = 6), labels = c(1, pv_label[2:6]), cex.axis = 0.85)
+  title("p.value", cex.main = 0.6)
+}
+
+plotEnrich(allRes = allRes, title = 'Enrichment Analysis')
+
+```
+
+Aquí podemos ver cómo los procesos biológicos más sobreexpresados serán los relacionados con la señal sináptica, la señalización trans-sináptica, la señalización anterógrada sináptica y la transmisión química sináptica, entre otros procesos también relacionados con la sinapsis y el procesamiento de transmisión de información. En definitiva, que tal y como se comenta en el paper asociado a estos datos, los genes DE en la región CA3 van a indicar que esta región va a mostrar mecanismos de remodelación sináptica, lo que puede servir como base para la codificación rápida de nueva información en la memoria a largo plazo. *(explicación más extensa en el documento redactado)*  
 
 
 </div>
