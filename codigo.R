@@ -2,6 +2,12 @@
 
 setwd("C:/Users/Sara/Desktop/alvarezgonzalez_sara_ADO_PEC1")
 library(affy)
+library(simpleaffy)
+library(affyPLM)
+library(limma)
+library(statmod)
+library(biomaRt)
+library(topGO)
 
 archivos <- ReadAffy(compress = TRUE)
 
@@ -110,7 +116,7 @@ gen_CA1 <- contrasts.fit(ajuste2,contraste_CA1)
 gen_CA1 <- eBayes(gen_CA1)
 table_CA1 <- topTable(gen_CA1,sort.by = "P",n=Inf)
 head(table_CA1,5)
-length(which(table_CA1$adj.P.Val < 0.5))
+length(which(table_CA1$adj.P.Val < 0.05))
 table_CA1$Genes <- rownames(table_CA1)
 table_CA1 <- table_CA1[,c("Genes",names(table_CA1)[1:6])]
 write.table(table_CA1,file="CA1_Control_vs_Activado.txt",row.names = F,sep = "\t",quote = F)
@@ -128,7 +134,86 @@ write.table(table_DG,file="DG_Control_vs_Activado.txt",row.names = F,sep = "\t",
 
 #8.
 
-length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5))
-length(which(table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
 length(which(table_CA3$adj.P.Val < 0.05 & table_DG$adj.P.Val < 0.05))
-length(which(table_CA3$adj.P.Val < 0.5 & table_CA1$adj.P.Val < 0.5 & table_DG$adj.P.Val < 0.5))
+
+
+#9.
+
+#Obtenemos ID
+ensembl <- useEnsembl(biomart = "ensembl")
+searchDatasets(mart = ensembl, pattern = "(R|r)at")
+
+#Consultamos cómo se llama la variable que necesitaremos buscar
+ensembl <- useEnsembl(biomart = "ensembl",dataset = "rnorvegicus_gene_ensembl")
+annotation(archivos)
+searchFilters(mart = ensembl,pattern = "rae230a")
+searchAttributes(mart = ensembl,pattern = "GO")
+searchAttributes(mart = ensembl,pattern = "symbol")
+
+biom <- useMart(biomart = "ensembl",dataset = "rnorvegicus_gene_ensembl")
+
+ID_DE <- table_CA3[table_CA3$adj.P.Val < 0.05,]
+ID_DE <- rownames(ID_DE)
+
+# transformamos a un lengaje que nos ayude a comparar posteriormente
+ID_DE<-getBM(attributes =  c("rgd_symbol"), filters = "affy_rae230a", values =ID_DE, mart = biom)
+
+ID_DE <- ID_DE[,1]
+
+length(ID_DE)
+
+gen_total <- rownames(matriz)
+length(gen_total)
+genes_ID<-getBM(attributes =  c("go_id","rgd_symbol"), filters = "affy_rae230a", values =gen_total, mart = biom)
+
+# Limpiamos los que no tiene GO para que no interfiera en el análisis posterior
+borrar <- which(genes_ID$go_id=="")
+genes_ID <- genes_ID[-borrar]
+dim(genes_ID)
+
+# Convertir los genes totales en una lista de los genes y los GO asociados
+lista_genes <- unique(genes_ID$rgd_symbol)
+lista <- list()
+for (i in lista_genes) {
+  lista[[i]] = genes_ID[which(genes_ID$rgd_symbol==i),]$go_id
+}
+head(lista,2)
+
+genes <- names(lista)
+genes_comparados <- factor(as.integer(genes %in% ID_DE))
+table(genes_comparados)
+names(genes_comparados) <- genes
+
+GO_data <- new("topGOdata", ontology="BP", allGenes=genes_comparados,annot = annFUN.gene2GO, gene2GO = lista)
+
+resFisher = runTest(GO_data, algorithm = 'classic', statistic = 'fisher')
+resFisher
+
+Nodes = 15
+allRes = GenTable(GO_data, classicFisher = resFisher, topNodes = Nodes)
+head(allRes)
+
+# Plots
+plotEnrich = function(allRes_ord, title){
+  # Plotting!
+  layout(t(1:2), widths = c(8,1))
+  par(mar=c(4, .5, .7, .7), oma = c(3, 15, 3, 4), las = 1)
+  
+  rbPal = colorRampPalette(c('red', 'white', 'blue'))
+  pvalue = as.numeric(gsub("<", "", allRes$classicFisher))
+  max_value = as.integer(max(-log(pvalue))) + 1
+  pv_range = exp(-seq(max_value, 0, -1))
+  allRes$Color = rbPal(max_value) [cut(pvalue, pv_range)]
+  
+  o = order(allRes$Significant, decreasing = T)
+  barplot(allRes$Significant[o], names.arg = allRes$Term[o], las = 2, horiz = T, col = allRes$Color[o],
+          xlab = "Number of sequences", main = title, cex.names = 0.85)
+  
+  image(0, seq(1, max_value), t(seq_along(seq(1, max_value))), col = rev(rbPal(max_value)), axes = F, ann = F)
+  pv_label = exp(-seq(log(1), -log(min(pvalue)), l = 6))
+  pv_label = formatC(pv_label, format = "e", digits = 2)
+  axis(4, at = seq(1, max_value, length = 6), labels = c(1, pv_label[2:6]), cex.axis = 0.85)
+  title("p.value", cex.main = 0.6)
+}
+
+plotEnrich(allRes = allRes, title = 'Enrichment Analysis')
