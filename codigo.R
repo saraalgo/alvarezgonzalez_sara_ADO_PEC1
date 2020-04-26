@@ -55,6 +55,8 @@ plclust(clust.euclid.average, main="Hierarchical clustering of samples",  hang=-
 calidad <- qc(archivos)
 plot(calidad)
 
+image(archivos[,6],col=rainbow(100),main="CA3_cont_6")
+
 
 #3.
 normalizacion <- rma(archivos)
@@ -80,7 +82,12 @@ hist(normalizacion,col=colores,main="Datos normalizados")
 legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
 hist(archivos,col=colores,main="Datos crudos")
 legend("topright", c("CA3", "CA1", "DG"), fill=c("red","blue","yellow"))
-
+#cluster
+par(mfrow=c(1,2))
+clust.euclid.average <- hclust(dist(t(exprs(normalizacion))),method="average")
+plot(clust.euclid.average, main="Clúster jerárquico de Datos normalizados",  hang=-1)
+clust.euclid.average <- hclust(dist(t(exprs(archivos))),method="average")
+plot(clust.euclid.average, main="Clúster jerárquico de Datos crudos",  hang=-1)
 
 #6 y 7.
 feno@data[,2] <- c(rep("CA3",14),rep("CA1",12),rep("DG",14))
