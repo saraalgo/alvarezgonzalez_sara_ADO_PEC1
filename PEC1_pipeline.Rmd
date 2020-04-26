@@ -114,7 +114,7 @@ image(archivos[,6],col=rainbow(100),main="CA3_cont_6")
 
 ##3. Normalización
 
-Para llevar a cabo esta tarea, se ha elegido el método de **RMA**, debido que se trata de una muestra de microarray de un color, concretamente Affymetrix. Este método de resumen y normalización va a aportar mejores antes las deficiencia de los anteriores métodos (MAS4 y MAS5). Los pasos que va a llevar a cabo este **Robust multi-array average** serán: un ajuste del ruido de fondo, la toma de logaritmos de base 2 ajustados por el anterior, la normalización por cuantiles de los valores anteriores y estimación de las intensidades para, en este caso, cada gen para cada conjunto de ARN tumoral que lo componen.
+Para llevar a cabo esta tarea, se ha elegido el método de **RMA**, debido que se trata de una muestra de microarray de un color, concretamente Affymetrix. Este método de resumen y normalización va a aportar mejores antes las deficiencias de los anteriores métodos (MAS4 y MAS5). Los pasos que va a llevar a cabo este **Robust multi-array average** serán: un ajuste del ruido de fondo, la toma de logaritmos de base 2 ajustados por el anterior, la normalización por cuantiles de los valores anteriores y estimación de las intensidades para, en este caso, cada gen para cada área en su correspondiente estado (control o experimental).
 
 ```{r}
 normalizacion <- rma(archivos)
@@ -265,7 +265,7 @@ La comparación muestra por tanto:
 
 Para realizar este análisis, se utilizará el test de enrichment de términos GO, junto con los datos de los genes DE, empleando el estadísitico del **test de Fisher**.
 
-Primero deberemos de crear un objeto tipo **topGOdata** que contenga todos los ID de los genes DE y sus puntualciones, las anotaciones GO, la estructura jerárquica GO y toda la otra información necesaria para llevar a cabo el análisis de enriquecimiento.
+Primero deberemos de crear un objeto tipo **topGOdata** que contenga todos los ID de los genes DE y sus puntuaciones, las anotaciones GO, la estructura jerárquica GO y toda la otra información necesaria para llevar a cabo el análisis de enriquecimiento.
 
 Debemos por tanto crear las demás variables para unirlas todas en el nuevo objeto. Primero será necesario obtener los símbolos de los genes y los GO asociados con la librería *biomaRt*:
 
@@ -337,7 +337,7 @@ resFisher = runTest(GO_data, algorithm = 'classic', statistic = 'fisher')
 resFisher
 ```
 
-Habiendo **14859** GO terms registrados, de los cuales **377** van a poseer una significancia *p < 0.01*, fueron seleccionados solo los 15 primeros, facilitando así un gráfico más sencillo de leer y comentar en el documento de desarrollo:
+Habiendo **14859** GO terms registrados, de los cuales **377** van a poseer una significancia *p < 0.01*. Para su representación gráfica fueron seleccionados solo los 15 primeros, facilitando así un gráfico más sencillo de leer y comentar en el documento de desarrollo:
 
 ```{r}
 Nodes = 15
@@ -372,7 +372,7 @@ plotEnrich(allRes = allRes, title = 'Enrichment Analysis')
 
 ```
 
-Aquí podemos ver cómo los procesos biológicos más sobreexpresados serán los relacionados con la señal sináptica, la señalización trans-sináptica, la señalización anterógrada sináptica y la transmisión química sináptica, entre otros procesos también relacionados con la sinapsis y el procesamiento de transmisión de información. En definitiva, que tal y como se comenta en el paper asociado a estos datos, los genes DE en la región CA3 van a indicar que esta región va a mostrar mecanismos de remodelación sináptica, lo que puede servir como base para la codificación rápida de nueva información en la memoria a largo plazo. *(explicación más extensa en el documento redactado)*  
+Aquí podemos ver cómo los procesos biológicos más sobreexpresados serán los relacionados con la señal sináptica, la señalización trans-sináptica, la señalización anterógrada sináptica y la transmisión química sináptica, entre otros procesos también relacionados con la sinapsis y el procesamiento de transmisión de información. En definitiva, que tal y como se comenta en el paper asociado a estos datos, los genes DE en la región CA3 van a indicar que esta región va a mostrar mecanismos de remodelación sináptica, lo que puede servir como base para la codificación rápida de nueva información en la memoria a largo plazo. 
 
 
 </div>
